@@ -1,64 +1,125 @@
-version: '3.8'
-
 services:
+  # PostgreSQL - only for local development
   postgres:
     image: postgres:15-alpine
     container_name: eproms-db
     environment:
-      POSTGRES_DB: eproms_db
-      POSTGRES_USER: eproms_user
-      POSTGRES_PASSWORD: eproms_secure_password
+      POSTGRES_DB: ${DB_NAME:-eproms_db}
+      POSTGRES_USER: ${DB_USER:-eproms_user}
+      POSTGRES_PASSWORD: ${DB_PASSWORD:-eproms_secure_password}
     ports:
       - "5432:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
       - ./backend/database/init.sql:/docker-entrypoint-initdb.d/init.sql
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U eproms_user -d eproms_db"]
+      test: ["CMD-SHELL", "pg_isready -U ${DB_USER:-eproms_user} -d ${DB_NAME:-eproms_db}"]
       interval: 10s
       timeout: 5s
       retries: 5
+    profiles:
+      - dev
+    networks:
+      - eproms-network
 
   backend:
     build:
       context: ./backend
       dockerfile: Dockerfile
+      target: ${BUILD_TARGET:-production}
     container_name: eproms-backend
-    ports:
-      - "3001:3001"
     environment:
-      NODE_ENV: production
-      PORT: 3001
-      DB_HOST: postgres
-      DB_PORT: 5432
-      DB_NAME: eproms_db
-      DB_USER: eproms_user
-      DB_PASSWORD: eproms_secure_password
-      JWT_SECRET: change_this_in_production
-      NHS_SSO_CLIENT_ID: ${NHS_SSO_CLIENT_ID}
-      NHS_SSO_CLIENT_SECRET: ${NHS_SSO_CLIENT_SECRET}
-    depends_on:
-      postgres:
-        condition: service_healthy
+      - NODE_ENV=${NODE_ENV:-production}
+      - PORT=3001
+      - DB_HOST=${DB_HOST:-postgres}
+      - DB_PORT=${DB_PORT:-5432}
+      - DB_NAME=${DB_NAME:-eproms_db}
+      - DB_USER=${DB_USER:-eproms_user}
+      - DB_PASSWORD=${DB_PASSWORD:-eproms_secure_password}
+      - JWT_SECRET=${JWT_SECRET}
+      - JWT_EXPIRES_IN=${JWT_EXPIRES_IN:-7d}
+      - FRONTEND_URL=${FRONTEND_URL:-http://localhost:3000}
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://127.0.0.1:3001/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+    networks:
+      - eproms-network
+    # Development: expose port and mount volumes
+    ports:
+      - "${BACKEND_PORT:-3001}:3001"
     volumes:
       - ./backend:/app
       - /app/node_modules
+    profiles:
+      - dev
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+  backend-prod:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: eproms-backend
+    environment:
+      - NODE_ENV=production
+      - PORT=3001
+      - DB_HOST=${DB_HOST}
+      - DB_PORT=${DB_PORT:-5432}
+      - DB_NAME=${DB_NAME}
+      - DB_USER=${DB_USER}
+      - DB_PASSWORD=${DB_PASSWORD}
+      - JWT_SECRET=${JWT_SECRET}
+      - JWT_EXPIRES_IN=${JWT_EXPIRES_IN:-7d}
+      - FRONTEND_URL=${FRONTEND_URL:-https://doctorsthatcode.com/client/eproms}
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://127.0.0.1:3001/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+    networks:
+      - eproms-network
+    profiles:
+      - prod
 
   frontend:
     build:
       context: ./frontend
       dockerfile: Dockerfile
     container_name: eproms-frontend
-    ports:
-      - "3002:3000"
-    environment:
-      REACT_APP_API_URL: http://localhost:3001
-      VITE_API_URL: http://backend:3001
     depends_on:
-      - backend
-    volumes:
-      - ./frontend:/app
-      - /app/node_modules
+      - backend-prod
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://127.0.0.1:80/"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+    networks:
+      - eproms-network
+      - dtc-base_traefik
+    labels:
+      - traefik.enable=true
+      - traefik.http.routers.eproms.rule=Host(`${DOMAIN:-doctorsthatcode.com}`) && PathPrefix(`/client/eproms/`)
+      - traefik.http.routers.eproms.priority=100
+      - traefik.http.routers.eproms.entrypoints=websecure
+      - traefik.http.routers.eproms.tls.certresolver=letsencrypt
+      - traefik.http.services.eproms.loadbalancer.server.port=80
+    profiles:
+      - prod
+
+networks:
+  eproms-network:
+    name: eproms-network
+  dtc-base_traefik:
+    external: true
 
 volumes:
   postgres_data:
