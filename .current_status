@@ -1,0 +1,21 @@
+NHS EPROMS System Status
+========================
+
+✅ SYSTEM RUNNING
+
+Services:
+- Database (PostgreSQL): Running on port 5432
+- Backend API: Running on port 3001
+- Frontend: Running on port 3002
+
+Test Accounts:
+- Patient: patient@test.com / Password123
+- Clinician: clinician@test.com / Password123
+
+Access: http://localhost:3002
+
+To restart:
+cd /home/samjm000/code/DTC_EPROMS
+docker compose up -d
+
+Last updated: 2025-11-27 16:56 UTC

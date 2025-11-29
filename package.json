@@ -1,0 +1,25 @@
+{
+  "name": "dtc-eproms",
+  "version": "1.0.0",
+  "description": "Electronic Patient Recorded Outcome Measures System for Cancer Clinics",
+  "private": true,
+  "workspaces": [
+    "backend",
+    "frontend"
+  ],
+  "scripts": {
+    "install:all": "npm install && npm install --workspace=backend && npm install --workspace=frontend",
+    "dev": "concurrently \"npm run dev --workspace=backend\" \"npm run dev --workspace=frontend\"",
+    "build": "npm run build --workspace=frontend && npm run build --workspace=backend",
+    "docker:build": "docker-compose build",
+    "docker:up": "docker-compose up -d",
+    "docker:down": "docker-compose down",
+    "test": "npm run test --workspace=backend && npm run test --workspace=frontend"
+  },
+  "keywords": ["eproms", "nhs", "cancer", "ctcae"],
+  "author": "",
+  "license": "MIT",
+  "devDependencies": {
+    "concurrently": "^8.2.2"
+  }
+}
