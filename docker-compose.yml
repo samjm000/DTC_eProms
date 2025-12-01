@@ -90,8 +90,8 @@ services:
 
   frontend:
     build:
-      context: ./frontend
-      dockerfile: Dockerfile
+      context: .
+      dockerfile: ./frontend/Dockerfile
     container_name: eproms-frontend
     depends_on:
       - backend-prod
