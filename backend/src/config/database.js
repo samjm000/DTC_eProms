@@ -10,6 +10,15 @@ const sequelize = new Sequelize(
     port: process.env.DB_PORT || 5432,
     dialect: 'postgres',
     logging: process.env.NODE_ENV === 'development' ? console.log : false,
+    dialectOptions: {
+      ssl: process.env.DB_SSL === 'true' ? {
+        require: true,
+        rejectUnauthorized: false
+      } : false,
+      // Force IPv4 to avoid IPv6 connection issues
+      host: process.env.DB_HOST || 'localhost',
+      family: 4
+    },
     pool: {
       max: 10,
       min: 0,
